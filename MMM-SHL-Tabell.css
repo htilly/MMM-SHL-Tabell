@@ -1,0 +1,368 @@
+/* MMM-SHL-Tabell
+ *
+ * Built for a portrait 1080x1920 mirror, in lower_third.
+ *
+ * Restraint is the whole design. A mirror is black glass across a room, so
+ * the table is mostly white-on-black and colour is spent only where it says
+ * something: which zone a team is in, whether a goal difference is positive,
+ * which team is yours, and whether a game is live. Crests carry the club
+ * colour so the table does not have to.
+ *
+ * Numbers use tabular figures so columns do not shift as scores change.
+ */
+
+.MMM-SHL-Tabell {
+	--shl-fav: #ffd166;
+	--shl-live: #ff5a5a;
+	--shl-up: #6dd47e;
+	--shl-down: #e8796f;
+	--shl-playoff: #45c07a;
+	--shl-playin: #5aa9e6;
+	--shl-relegation: #e06c6c;
+	--shl-rule: rgba(255, 255, 255, 0.18);
+	--shl-stripe: rgba(255, 255, 255, 0.035);
+	--shl-disc: rgba(255, 255, 255, 0.92);
+}
+
+.shl {
+	width: 100%;
+}
+
+.shl-message {
+	padding: 0.4em 0;
+}
+
+/* --- live panel -------------------------------------------------------- */
+
+.shl-live {
+	margin-bottom: 0.7em;
+}
+
+.shl-hero {
+	padding: 0.55em 0.8em 0.6em;
+	border-radius: 0.55em;
+	text-align: center;
+	background: rgba(255, 255, 255, 0.045);
+}
+
+.shl-hero--live {
+	background: radial-gradient(ellipse at center, rgba(255, 90, 90, 0.2), rgba(255, 90, 90, 0) 72%);
+	box-shadow: inset 0 0 0 1px rgba(255, 90, 90, 0.4);
+}
+
+.shl-hero--done {
+	background: rgba(255, 255, 255, 0.03);
+}
+
+.shl-hero-tag {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.4em;
+	font-size: 0.8em;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	margin-bottom: 0.25em;
+}
+
+.shl-hero--live .shl-hero-tag-text {
+	color: var(--shl-live);
+	font-variant-numeric: tabular-nums;
+}
+
+.shl-hero-score {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.7em;
+}
+
+.shl-hero-side {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 0.2em;
+	flex: 1 1 0;
+	font-size: 1.1em;
+}
+
+.shl-hero-nums {
+	font-size: 2.6em;
+	font-weight: 300;
+	line-height: 1;
+	letter-spacing: -0.02em;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	color: #fff;
+}
+
+.shl-hero--live .shl-hero-nums {
+	text-shadow: 0 0 0.3em rgba(255, 90, 90, 0.5);
+}
+
+.shl-hero-venue {
+	margin-top: 0.3em;
+}
+
+/* Pulsing dot: the only motion in the module, reserved for "happening now". */
+.shl-dot {
+	width: 0.5em;
+	height: 0.5em;
+	border-radius: 50%;
+	background: var(--shl-live);
+	display: inline-block;
+	animation: shl-pulse 2s ease-in-out infinite;
+}
+
+@keyframes shl-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.25;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.shl-dot {
+		animation: none;
+	}
+}
+
+/* --- one line per game (liveGames: "all") ------------------------------ */
+
+.shl-game {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+	padding: 0.14em 0;
+}
+
+.shl-game-status {
+	display: flex;
+	align-items: center;
+	gap: 0.3em;
+	flex: 0 0 5.5em;
+	font-variant-numeric: tabular-nums;
+}
+
+.shl-game--live .shl-game-status {
+	color: var(--shl-live);
+}
+
+.shl-game-team {
+	flex: 1 1 0;
+}
+
+.shl-game-team--home {
+	text-align: right;
+}
+
+.shl-game-score {
+	flex: 0 0 3.2em;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+
+/* --- crests ------------------------------------------------------------ */
+
+/* A pale disc behind every crest: several SHL logos are near-black and would
+   otherwise disappear into the glass. */
+.shl-logo {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.5em;
+	height: 1.5em;
+	border-radius: 50%;
+	background: var(--shl-disc);
+	flex: 0 0 auto;
+	margin-right: 0.45em;
+	vertical-align: -0.42em;
+}
+
+.shl-logo img {
+	width: 1.15em;
+	height: 1.15em;
+	object-fit: contain;
+	display: block;
+}
+
+.shl-logo--hero {
+	width: 2.4em;
+	height: 2.4em;
+	margin-right: 0;
+	vertical-align: baseline;
+}
+
+.shl-logo--hero img {
+	width: 1.85em;
+	height: 1.85em;
+}
+
+/* A crest that would not load leaves the row aligned, not broken. */
+.shl-logo--missing {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.shl-logo--missing img {
+	display: none;
+}
+
+/* --- table ------------------------------------------------------------- */
+
+.shl-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-variant-numeric: tabular-nums;
+	font-size: 1.05em;
+}
+
+.shl-table th {
+	font-weight: 400;
+	font-size: 0.72em;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	padding: 0 0.3em 0.4em;
+	border-bottom: 1px solid var(--shl-rule);
+}
+
+.shl-table td {
+	padding: 0.2em 0.3em;
+	white-space: nowrap;
+	border-bottom: 1px solid transparent;
+}
+
+/* Zebra striping: at fourteen rows the eye needs help tracking across. */
+.shl-row:nth-child(even) td {
+	background: var(--shl-stripe);
+}
+
+.shl-col-rank {
+	width: 2.1em;
+	text-align: right;
+	position: relative;
+	padding-left: 0.6em !important;
+	color: rgba(255, 255, 255, 0.55);
+}
+
+.shl-col-team {
+	text-align: left;
+	width: 100%;
+}
+
+.shl-team-name {
+	vertical-align: middle;
+}
+
+.shl-col-num {
+	text-align: right;
+	width: 2.3em;
+}
+
+.shl-col-goals {
+	text-align: right;
+	width: 4em;
+}
+
+.shl-col-points {
+	text-align: right;
+	width: 2.6em;
+	color: #fff;
+	font-weight: 400;
+}
+
+/* --- zones ------------------------------------------------------------- */
+
+/* A stripe at the left edge of the rank cell: playoff places, play-in, and
+   the play-out spot. The only colour in the table that is about meaning. */
+.shl-row--playoff .shl-col-rank::before,
+.shl-row--playin .shl-col-rank::before,
+.shl-row--relegation .shl-col-rank::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 0.1em;
+	bottom: 0.1em;
+	width: 0.2em;
+	border-radius: 0.1em;
+}
+
+.shl-row--playoff .shl-col-rank::before {
+	background: var(--shl-playoff);
+}
+
+.shl-row--playin .shl-col-rank::before {
+	background: var(--shl-playin);
+}
+
+.shl-row--relegation .shl-col-rank::before {
+	background: var(--shl-relegation);
+}
+
+.shl-row--playoff .shl-col-rank {
+	color: var(--shl-playoff);
+}
+
+.shl-row--playin .shl-col-rank {
+	color: var(--shl-playin);
+}
+
+.shl-row--relegation .shl-col-rank {
+	color: var(--shl-relegation);
+}
+
+/* Rules marking the boundaries between those zones. */
+.shl-row--divide td {
+	border-bottom: 1px solid var(--shl-rule);
+}
+
+/* --- goal difference --------------------------------------------------- */
+
+.shl-diff--up {
+	color: var(--shl-up);
+}
+
+.shl-diff--down {
+	color: var(--shl-down);
+}
+
+/* --- the favourite ----------------------------------------------------- */
+
+/* Lit, warmer than anything else, and the only row with a glow. From across
+   the room you should find your team before you start reading names. */
+.shl-row--fav td {
+	background: rgba(255, 209, 102, 0.13);
+	border-top: 1px solid rgba(255, 209, 102, 0.3);
+	border-bottom: 1px solid rgba(255, 209, 102, 0.3);
+}
+
+.shl-row--fav .shl-team-name {
+	color: var(--shl-fav);
+	font-weight: 400;
+}
+
+.shl-row--fav .shl-col-points {
+	color: var(--shl-fav);
+	text-shadow: 0 0 0.4em rgba(255, 209, 102, 0.4);
+}
+
+.shl-row--fav .shl-logo {
+	box-shadow: 0 0 0 0.12em var(--shl-fav);
+}
+
+.shl-fav-text {
+	color: var(--shl-fav);
+}
+
+/* --- footer ------------------------------------------------------------ */
+
+.shl-foot {
+	margin-top: 0.45em;
+	text-align: right;
+}
+
+.shl-foot--stale {
+	color: var(--shl-fav);
+}
