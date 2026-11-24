@@ -24,8 +24,8 @@ Built for a portrait 1080×1920 mirror. Everything on screen is Swedish; the cod
 
 ## What it does
 
-- **The standings table** — all 14 teams with their crests, the columns the SHL table conventionally shows, and rules marking the playoff, play-in and play-out lines.
-- **Colour that means something** — a stripe on the rank for the qualification zone, green/red on goal difference, and nothing decorative. Crests carry the club colour so the table doesn't have to.
+- **The standings table** — all 14 teams with their crests, goal difference and points (or every column the SHL table conventionally shows, with `showAllStats`), and rules marking the playoff, play-in and play-out lines.
+- **Colour that means something** — the rank number coloured by qualification zone, green/red on goal difference, and nothing decorative. Crests carry the club colour so the table doesn't have to.
 - **Live scores** — when a game is in progress, the score, period and clock appear above the table. The panel is absent the rest of the time, so the table normally sits alone.
 - **A favourite team** — highlighted in the table, and their game surfaced prominently when they play.
 - **Graceful failure** — the last good table is cached to disk and rendered with a "senast uppdaterad" stamp if the feed goes away. A wall display should never go blank or show a stack trace.
@@ -66,6 +66,7 @@ With the options worth knowing about:
         liveGames: "favorite",    // "favorite" | "all" | "off"
         maxRows: 14,
         dividers: [6, 10, 13],
+        showAllStats: true,       // default false = only +/- and points
         showLogos: false,
         showUpdated: true
     }
@@ -81,7 +82,8 @@ With the options worth knowing about:
 | `liveGames` | `"favorite"` | Which games appear above the table. See [live games](#live-games). |
 | `maxRows` | `14` | How many teams to show. `14` is the whole league; lower it for a top slice. |
 | `dividers` | `[6, 10, 13]` | Draw a rule *after* these ranks. The SHL default marks direct playoff places (1–6), play-in (7–10) and the play-out spot (14). |
-| `zones` | `{ playoff: 6, playin: 10, relegation: 14 }` | Colour-code qualification zones with a stripe on the rank: green to `playoff`, blue to `playin`, red from `relegation` down. Set to `null` for a monochrome table. |
+| `zones` | `{ playoff: 6, playin: 10, relegation: 14 }` | Colour-code qualification zones on the rank number: green to `playoff`, blue to `playin`, red from `relegation` down. Set to `null` for a monochrome table. |
+| `showAllStats` | `false` | `false` shows only `+/-` and `P` (points). `true` shows every column. |
 | `showLogos` | `true` | Show team crests. Each is downloaded once into `cache/logos/` and served locally thereafter, so this costs 14 fetches in total, not 14 per render. |
 | `showUpdated` | `true` | Show the "senast uppdaterad" line under the table. |
 | `staleWarningMinutes` | `90` | How long without fresh data before the stamp turns into a visible warning. Based on age alone, so a helper that dies silently is still caught. |

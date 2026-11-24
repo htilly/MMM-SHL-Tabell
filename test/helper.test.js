@@ -374,3 +374,35 @@ test("a successful fetch writes the table to disk for the next cold start", asyn
 	assert.strictEqual(onDisk.standings[0].points, 47);
 	assert.strictEqual(onDisk.season.uuid, SEASON.uuid);
 });
+
+/** Render the table with a bare-bones DOM; returns each row's cell texts. */
+function tableCells(showAllStats) {
+	const mod = loadFrontEnd();
+	if (showAllStats !== undefined) mod.config.showAllStats = showAllStats;
+	mod.config.showLogos = false;
+	mod.payload = {
+		standings: [
+			{ rank: 1, teamId: "x", display: "X", gp: 18, w: 14, otw: 2, otl: 1, l: 1, gf: 67, ga: 24, diff: 43, points: 47 }
+		]
+	};
+	mod.el = (_tag, _cls, text) => ({
+		text,
+		children: [],
+		appendChild(child) {
+			this.children.push(child);
+		}
+	});
+	return mod.renderTable(null).children.map((row) => row.children.map((c) => c.text));
+}
+
+test("showAllStats: true shows every stat", () => {
+	const [head, row] = tableCells(true);
+	assert.deepStrictEqual(head, ["", "Lag", "M", "V", "ÖTV", "ÖTF", "F", "MÅL", "+/-", "P"]);
+	assert.deepStrictEqual(row.slice(2), ["18", "14", "2", "1", "1", "67–24", "+43", "47"]);
+});
+
+test("only +/- and points are shown by default", () => {
+	const [head, row] = tableCells();
+	assert.deepStrictEqual(head, ["", "Lag", "+/-", "P"]);
+	assert.deepStrictEqual(row.slice(2), ["+43", "47"]);
+});

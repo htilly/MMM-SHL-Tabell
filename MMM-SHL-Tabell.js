@@ -25,6 +25,9 @@ Module.register("MMM-SHL-Tabell", {
 		// Colour-code qualification zones: 1–6 playoffs, 7–10 play-in, 14 play-out.
 		// Set to null for a monochrome table.
 		zones: { playoff: 6, playin: 10, relegation: 14 },
+		// true  — every column (M, V, ÖTV, ÖTF, F, MÅL, +/-, P)
+		// false — just +/- and P
+		showAllStats: false,
 		showLogos: true,
 		showUpdated: true,
 		// Flag the table as stale once this long has passed with no fresh data,
@@ -304,18 +307,23 @@ Module.register("MMM-SHL-Tabell", {
 	renderTable(favourite) {
 		const rows = (this.payload.standings || []).slice(0, this.config.maxRows);
 		const dividers = new Set(this.config.dividers || []);
+		const allStats = this.config.showAllStats;
 		const table = this.el("table", "shl-table small");
 
 		const head = this.el("tr", "shl-head dimmed xsmall");
 		const headings = [
 			["", "shl-col-rank"],
 			["Lag", "shl-col-team"],
-			["M", "shl-col-num"],
-			["V", "shl-col-num"],
-			["ÖTV", "shl-col-num"],
-			["ÖTF", "shl-col-num"],
-			["F", "shl-col-num"],
-			["MÅL", "shl-col-goals"],
+			...(allStats
+				? [
+						["M", "shl-col-num"],
+						["V", "shl-col-num"],
+						["ÖTV", "shl-col-num"],
+						["ÖTF", "shl-col-num"],
+						["F", "shl-col-num"],
+						["MÅL", "shl-col-goals"]
+					]
+				: []),
 			["+/-", "shl-col-num"],
 			["P", "shl-col-points"]
 		];
@@ -335,7 +343,7 @@ Module.register("MMM-SHL-Tabell", {
 				.join(" ");
 			const tr = this.el("tr", classes);
 
-			// The rank cell carries the zone stripe, so position and meaning
+			// The rank cell carries the zone colour, so position and meaning
 			// arrive together at the left edge of the row.
 			this.cell(tr, "shl-col-rank", String(team.rank));
 
@@ -345,12 +353,14 @@ Module.register("MMM-SHL-Tabell", {
 			}
 			teamCell.appendChild(this.el("span", `shl-team-name${isFav ? " bright" : ""}`, team.display));
 
-			this.cell(tr, "shl-col-num", String(team.gp));
-			this.cell(tr, "shl-col-num", String(team.w));
-			this.cell(tr, "shl-col-num", String(team.otw));
-			this.cell(tr, "shl-col-num", String(team.otl));
-			this.cell(tr, "shl-col-num", String(team.l));
-			this.cell(tr, "shl-col-goals dimmed", `${team.gf}–${team.ga}`);
+			if (allStats) {
+				this.cell(tr, "shl-col-num", String(team.gp));
+				this.cell(tr, "shl-col-num", String(team.w));
+				this.cell(tr, "shl-col-num", String(team.otw));
+				this.cell(tr, "shl-col-num", String(team.otl));
+				this.cell(tr, "shl-col-num", String(team.l));
+				this.cell(tr, "shl-col-goals dimmed", `${team.gf}–${team.ga}`);
+			}
 
 			const diffClass = team.diff > 0 ? " shl-diff--up" : team.diff < 0 ? " shl-diff--down" : " dimmed";
 			this.cell(tr, `shl-col-num${diffClass}`, ShlCore.formatDiff(team.diff));
@@ -363,11 +373,9 @@ Module.register("MMM-SHL-Tabell", {
 	},
 
 	/**
-	 * A crest, on a pale disc.
+	 * A crest, on a black disc (see --shl-disc in the stylesheet).
 	 *
-	 * Several SHL clubs have near-black logos that would vanish against a
-	 * mirror's background, so every crest sits on the same light disc. It
-	 * also keeps the left edge of the table visually even.
+	 * The fixed-size disc keeps the left edge of the table visually even.
 	 */
 	logo(src, extraClass) {
 		const wrap = this.el("span", `shl-logo${extraClass ? ` ${extraClass}` : ""}`);

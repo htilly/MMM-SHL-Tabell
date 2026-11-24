@@ -21,7 +21,7 @@
 	--shl-relegation: #e06c6c;
 	--shl-rule: rgba(255, 255, 255, 0.18);
 	--shl-stripe: rgba(255, 255, 255, 0.035);
-	--shl-disc: rgba(255, 255, 255, 0.92);
+	--shl-disc: #000;
 }
 
 .shl {
@@ -167,8 +167,8 @@
 
 /* --- crests ------------------------------------------------------------ */
 
-/* A pale disc behind every crest: several SHL logos are near-black and would
-   otherwise disappear into the glass. */
+/* A black disc behind every crest, so it blends into the glass. Near-black
+   logos lose contrast here; --shl-disc sets the colour. */
 .shl-logo {
 	display: inline-flex;
 	align-items: center;
@@ -275,32 +275,8 @@
 
 /* --- zones ------------------------------------------------------------- */
 
-/* A stripe at the left edge of the rank cell: playoff places, play-in, and
-   the play-out spot. The only colour in the table that is about meaning. */
-.shl-row--playoff .shl-col-rank::before,
-.shl-row--playin .shl-col-rank::before,
-.shl-row--relegation .shl-col-rank::before {
-	content: "";
-	position: absolute;
-	left: 0;
-	top: 0.1em;
-	bottom: 0.1em;
-	width: 0.2em;
-	border-radius: 0.1em;
-}
-
-.shl-row--playoff .shl-col-rank::before {
-	background: var(--shl-playoff);
-}
-
-.shl-row--playin .shl-col-rank::before {
-	background: var(--shl-playin);
-}
-
-.shl-row--relegation .shl-col-rank::before {
-	background: var(--shl-relegation);
-}
-
+/* The rank number takes the zone colour: playoff places, play-in, and the
+   play-out spot. The only colour in the table that is about meaning. */
 .shl-row--playoff .shl-col-rank {
 	color: var(--shl-playoff);
 }
