@@ -216,13 +216,13 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 1.5em;
-	height: 1.5em;
+	width: 1.35em;
+	height: 1.35em;
 	border-radius: 50%;
 	background: var(--shl-disc);
 	flex: 0 0 auto;
 	margin-right: 0.45em;
-	vertical-align: -0.42em;
+	vertical-align: -0.35em;
 }
 
 .shl-logo img {
@@ -267,12 +267,13 @@
 	font-size: 0.72em;
 	text-transform: uppercase;
 	letter-spacing: 0.1em;
-	padding: 0 0.3em 0.4em;
+	padding: 0 0.3em 0.25em;
 	border-bottom: 1px solid var(--shl-rule);
 }
 
 .shl-table td {
-	padding: 0.2em 0.3em;
+	padding: 0.04em 0.3em;
+	line-height: 1.35;
 	white-space: nowrap;
 	border-bottom: 1px solid transparent;
 }
