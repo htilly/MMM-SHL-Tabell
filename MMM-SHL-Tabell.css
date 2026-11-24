@@ -275,8 +275,8 @@
 
 /* --- zones ------------------------------------------------------------- */
 
-/* The rank number takes the zone colour: playoff places, play-in, and the
-   play-out spot. The only colour in the table that is about meaning. */
+/* Only when the zones option is set: the rank number takes the zone colour
+   for playoff places, play-in, and the play-out spot. */
 .shl-row--playoff .shl-col-rank {
 	color: var(--shl-playoff);
 }

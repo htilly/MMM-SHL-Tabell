@@ -22,9 +22,9 @@ Module.register("MMM-SHL-Tabell", {
 		maxRows: 14,
 		// Draw a rule after these ranks: playoffs, play-in, play-out.
 		dividers: [6, 10, 13],
-		// Colour-code qualification zones: 1–6 playoffs, 7–10 play-in, 14 play-out.
-		// Set to null for a monochrome table.
-		zones: { playoff: 6, playin: 10, relegation: 14 },
+		// Colour the rank numbers by qualification zone, for example
+		// { playoff: 6, playin: 10, relegation: 14 }. null = uncoloured.
+		zones: null,
 		// true  — every column (M, V, ÖTV, ÖTF, F, MÅL, +/-, P)
 		// false — just +/- and P
 		showAllStats: false,
@@ -343,8 +343,7 @@ Module.register("MMM-SHL-Tabell", {
 				.join(" ");
 			const tr = this.el("tr", classes);
 
-			// The rank cell carries the zone colour, so position and meaning
-			// arrive together at the left edge of the row.
+			// Uncoloured unless zones is set; then it carries the zone colour.
 			this.cell(tr, "shl-col-rank", String(team.rank));
 
 			const teamCell = this.cell(tr, "shl-col-team");
