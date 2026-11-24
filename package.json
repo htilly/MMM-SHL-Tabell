@@ -1,0 +1,15 @@
+{
+  "name": "mmm-shl-tabell",
+  "version": "1.0.0",
+  "description": "MagicMirror² module: the SHL standings table with live scores, from shl.se",
+  "main": "MMM-SHL-Tabell.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": ["MagicMirror", "SHL", "hockey", "ishockey", "Sweden"],
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  }
+}
