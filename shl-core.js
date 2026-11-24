@@ -237,6 +237,48 @@
 		return [game];
 	}
 
+	/* ------------------------------------------------------------- events */
+
+	/**
+	 * Goals and penalties from gameday/play-by-play, newest first.
+	 *
+	 * Shots and the rest are dropped. As elsewhere the feed is undocumented, so
+	 * an event missing its details loses those details, never the panel.
+	 */
+	function mapEvents(payload, limit) {
+		if (!Array.isArray(payload)) return [];
+		const latest = new Map(); // a corrected event may arrive as a new revision
+		for (const e of payload) {
+			if (!e || (e.type !== "goal" && e.type !== "penalty")) continue;
+			const id = e.eventUuid || e.eventId || `${e.type}-${e.period}-${e.time}`;
+			const known = latest.get(id);
+			if (!known || num(e.revision) >= num(known.revision)) latest.set(id, e);
+		}
+		return [...latest.values()]
+			.sort((a, b) => num(b.period) - num(a.period) || clockSeconds(b.time) - clockSeconds(a.time) || num(b.eventId) - num(a.eventId))
+			.slice(0, limit === undefined ? 3 : limit)
+			.map((e) => {
+				const team = e.eventTeam || {};
+				const goals = [e.homeGoals, e.awayGoals];
+				let detail = "";
+				if (e.type === "goal" && goals.every((g) => Number.isFinite(g))) detail = goals.join("–");
+				if (e.type === "penalty") detail = String((e.variant && e.variant.description) || "").trim();
+				return {
+					type: e.type,
+					period: num(e.period),
+					time: String(e.time || "").trim(),
+					team: String(team.teamCode || team.teamId || "").trim(),
+					player: String((e.player && e.player.familyName) || "").trim(),
+					detail
+				};
+			});
+	}
+
+	function clockSeconds(time) {
+		const m = /^(\d+):(\d+)$/.exec(String(time || "").trim());
+		return m ? Number(m[1]) * 60 + Number(m[2]) : 0;
+	}
+
 	/* --------------------------------------------------------------- zones */
 
 	/**
@@ -339,6 +381,7 @@
 		applyLive,
 		readGameTime,
 		isFinished,
+		mapEvents,
 		findFavouriteGame,
 		selectLiveGames,
 		zoneFor,

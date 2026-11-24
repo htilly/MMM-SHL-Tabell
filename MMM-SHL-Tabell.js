@@ -19,6 +19,8 @@ Module.register("MMM-SHL-Tabell", {
 		// "all"      — every game in progress
 		// "off"      — standings only
 		liveGames: "favorite",
+		// Latest goals and penalties in the favourite's live panel.
+		showEvents: true,
 		maxRows: 14,
 		// Draw a rule after these ranks: playoffs, play-in, play-out.
 		dividers: [6, 10, 13],
@@ -81,7 +83,9 @@ Module.register("MMM-SHL-Tabell", {
 			liveInterval: this.config.liveInterval,
 			gamedayInterval: this.config.gamedayInterval,
 			idleInterval: this.config.idleInterval,
-			preGameLead: this.config.preGameLead
+			preGameLead: this.config.preGameLead,
+			// Whose game to fetch events for; "" = none.
+			eventsFor: this.config.showEvents && this.config.liveGames === "favorite" ? this.config.favoriteTeam : ""
 		});
 	},
 
@@ -244,7 +248,24 @@ Module.register("MMM-SHL-Tabell", {
 		card.appendChild(score);
 
 		if (game.venue && !finished) card.appendChild(this.el("div", "shl-hero-venue xsmall dimmed", game.venue));
+		if (live && this.config.showEvents && game.events && game.events.length > 0) {
+			card.appendChild(this.renderEvents(game.events));
+		}
 		return card;
+	},
+
+	/** "P1 09:42  MÅL  Stockselius (ÖRE)  1–0", newest first. */
+	renderEvents(events) {
+		const list = this.el("div", "shl-events xsmall");
+		for (const e of events) {
+			const row = this.el("div", `shl-event shl-event--${e.type}`);
+			row.appendChild(this.el("span", "shl-event-time dimmed", [e.period ? `P${e.period}` : "", e.time].filter(Boolean).join(" ")));
+			row.appendChild(this.el("span", "shl-event-type", e.type === "goal" ? "MÅL" : "UTV"));
+			row.appendChild(this.el("span", "shl-event-who", e.player ? `${e.player}${e.team ? ` (${e.team})` : ""}` : e.team));
+			row.appendChild(this.el("span", "shl-event-detail", e.detail));
+			list.appendChild(row);
+		}
+		return list;
 	},
 
 	/** One line per game, for liveGames: "all". */

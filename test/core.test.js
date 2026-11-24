@@ -316,3 +316,30 @@ test("game sides carry a crest url when the feed has one", () => {
 	assert.equal(withIcon.home.logo, "https://example.invalid/fbk.svg");
 	assert.equal(withIcon.away.logo, null);
 });
+
+/* -------------------------------------------------------------- events */
+
+const PBP = [
+	{ type: "shot", eventUuid: "s", period: 1, time: "16:17" },
+	{ type: "penalty", eventUuid: "p", eventId: 33, revision: 2, period: 1, time: "12:29", eventTeam: { teamId: "OHK", teamCode: "ÖRE" }, player: { familyName: "Backström" }, variant: { description: "2 min" } },
+	{ type: "goal", eventUuid: "g", eventId: 27, revision: 1, period: 1, time: "09:42", eventTeam: { teamCode: "ÖRE" }, player: { familyName: "Fel" }, homeGoals: 1, awayGoals: 0 },
+	{ type: "goal", eventUuid: "g", eventId: 27, revision: 3, period: 1, time: "09:42", eventTeam: { teamCode: "ÖRE" }, player: { familyName: "Stockselius" }, homeGoals: 1, awayGoals: 0 },
+	{ type: "goal", eventUuid: "h", eventId: 50, revision: 1, period: 2, time: "01:05", eventTeam: { teamCode: "FHC" }, player: { familyName: "Hasa" }, homeGoals: 1, awayGoals: 1 },
+	{ type: "period", period: 1 }
+];
+
+test("events keep goals and penalties only, newest first, latest revision", () => {
+	assert.deepStrictEqual(core.mapEvents(PBP), [
+		{ type: "goal", period: 2, time: "01:05", team: "FHC", player: "Hasa", detail: "1–1" },
+		{ type: "penalty", period: 1, time: "12:29", team: "ÖRE", player: "Backström", detail: "2 min" },
+		{ type: "goal", period: 1, time: "09:42", team: "ÖRE", player: "Stockselius", detail: "1–0" }
+	]);
+	assert.strictEqual(core.mapEvents(PBP, 1).length, 1);
+});
+
+test("malformed events never throw", () => {
+	for (const bad of [null, undefined, {}, "x", [null, {}, 3]]) assert.deepStrictEqual(core.mapEvents(bad), []);
+	assert.deepStrictEqual(core.mapEvents([{ type: "penalty" }]), [
+		{ type: "penalty", period: 0, time: "", team: "", player: "", detail: "" }
+	]);
+});

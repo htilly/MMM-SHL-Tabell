@@ -406,3 +406,46 @@ test("only +/- and points are shown by default", () => {
 	assert.deepStrictEqual(head, ["", "Lag", "+/-", "P"]);
 	assert.deepStrictEqual(row.slice(2), ["+43", "47"]);
 });
+
+/* -------------------------------------------------------------- events */
+
+const FAV_GAME = () => ({ uuid: "g1", live: true, home: { teamId: "FBK" }, away: { teamId: "FHC" } });
+
+test("events are fetched for the favourite's live game only", async () => {
+	const { helper, api } = loadHelper();
+	helper.start();
+	helper.config = { eventsFor: "FBK" };
+	const asked = [];
+	api.fetchPlayByPlay = async (uuid) => {
+		asked.push(uuid);
+		return [{ type: "goal", period: 1, time: "01:00", homeGoals: 1, awayGoals: 0 }];
+	};
+	const fav = FAV_GAME();
+	const other = { uuid: "g2", live: true, home: { teamId: "LHF" }, away: { teamId: "MIF" } };
+	await helper.loadEvents([other, fav], CACHED_STATE.standings);
+	await helper.loadEvents([{ ...FAV_GAME(), live: false }], CACHED_STATE.standings);
+	assert.deepStrictEqual(asked, ["g1"]);
+	assert.strictEqual(fav.events.length, 1);
+	assert.strictEqual(other.events, undefined);
+});
+
+test("no events are fetched when they are switched off", async () => {
+	const { helper, api } = loadHelper();
+	helper.start();
+	helper.config = { eventsFor: "" };
+	api.fetchPlayByPlay = async () => assert.fail("should not fetch");
+	await helper.loadEvents([FAV_GAME()], CACHED_STATE.standings);
+});
+
+test("a failed events fetch keeps the previous events and does not throw", async () => {
+	const { helper, api } = loadHelper();
+	helper.start();
+	helper.config = { eventsFor: "FBK" };
+	helper.state = { games: [{ uuid: "g1", events: [{ type: "goal" }] }] };
+	api.fetchPlayByPlay = async () => {
+		throw new Error("boom");
+	};
+	const fav = FAV_GAME();
+	await helper.loadEvents([fav], CACHED_STATE.standings);
+	assert.deepStrictEqual(fav.events, [{ type: "goal" }]);
+});

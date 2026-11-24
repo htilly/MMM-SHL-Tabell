@@ -84,6 +84,7 @@ With the options worth knowing about:
 | `header` | `"SHL"` | Module header. Set to `""` to hide it. |
 | `favoriteTeam` | `"FBK"` | Which team to highlight. See [team codes](#team-codes) below. Case-insensitive; accepts the code or the short name. `""` for no favourite. |
 | `liveGames` | `"favorite"` | Which games appear above the table. See [live games](#live-games). |
+| `showEvents` | `true` | List the three latest goals and penalties in the favourite's live panel. Only with `liveGames: "favorite"`, and only while the game is on. |
 | `maxRows` | `14` | How many teams to show. `14` is the whole league; lower it for a top slice. |
 | `dividers` | `[6, 10, 13]` | Draw a rule *after* these ranks. The SHL default marks direct playoff places (1–6), play-in (7–10) and the play-out spot (14). |
 | `zones` | `null` | Uncoloured rank numbers by default. Set to e.g. `{ playoff: 6, playin: 10, relegation: 14 }` to colour them by qualification zone: green to `playoff`, blue to `playin`, red from `relegation` down. |
@@ -138,6 +139,10 @@ If `favoriteTeam` is `""`, there is simply no favourite: no highlight, and with 
 
 With `liveGames: "favorite"` and no `favoriteTeam` set, nothing is shown — it does not silently fall back to `"all"`.
 
+| `liveGames: "favorite"` (with `favoriteTeam: "LHF"`) | `liveGames: "all"` |
+|---|---|
+| <img src="docs/live-favorite.png" alt="Live panel for the favourite team's game above the table" width="400"> | <img src="docs/live-all.png" alt="One line per live game above the table" width="400"> |
+
 When there are no games at all, no panel is rendered: no empty box, no placeholder, just the table.
 
 ## Data source
@@ -152,6 +157,7 @@ shl.se's own site API — the feed their gameday widget uses.
 | Next game day | `GET /api/sports-v2/next-game-day?seasonSeriesGameType=…` |
 | Games in progress | `GET /api/sports-v2/upcoming-live-games` |
 | Live score and clock | `GET /api/gameday/game-overview/{gameUuid}` |
+| Goals and penalties | `GET /api/gameday/play-by-play/{gameUuid}` |
 
 All require the header `x-s8y-instance-id: shl1_shl`. No API key, no account.
 
@@ -186,7 +192,7 @@ The game poll adapts:
 npm test
 ```
 
-45 tests, no network and no DOM.
+50 tests, no network and no DOM.
 
 - `test/core.test.js` — the pure logic in `shl-core.js`: team matching, live-state detection, panel selection in each mode, zone mapping, poll scheduling, formatting.
 - `test/helper.test.js` — the degraded paths that decide whether the wall shows a stale table or an empty one: serving from cache before any network call, surviving a failed fetch, the cold start with neither cache nor network, the season-lookup fallback, the staleness footnote, and the re-subscribe watchdog. MagicMirror's `node_helper` and `logger` modules are stubbed; everything under test is the real code.

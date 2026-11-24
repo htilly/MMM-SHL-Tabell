@@ -104,6 +104,49 @@
 	margin-top: 0.3em;
 }
 
+/* Latest goals and penalties, newest first. */
+.shl-events {
+	margin-top: 0.6em;
+	padding-top: 0.45em;
+	border-top: 1px solid var(--shl-rule);
+	text-align: left;
+	font-variant-numeric: tabular-nums;
+}
+
+.shl-event {
+	display: flex;
+	gap: 0.6em;
+	line-height: 1.5;
+}
+
+.shl-event-time {
+	flex: 0 0 4.4em;
+}
+
+.shl-event-type {
+	flex: 0 0 2.2em;
+}
+
+.shl-event--goal .shl-event-type {
+	color: var(--shl-up);
+}
+
+.shl-event--penalty .shl-event-type {
+	color: var(--shl-down);
+}
+
+.shl-event-who {
+	flex: 1 1 0;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.shl-event-detail {
+	white-space: nowrap;
+}
+
 /* Pulsing dot: the only motion in the module, reserved for "happening now". */
 .shl-dot {
 	width: 0.5em;

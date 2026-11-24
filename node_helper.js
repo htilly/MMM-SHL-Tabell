@@ -67,6 +67,7 @@ module.exports = NodeHelper.create({
 			const ssgt = await this.currentSsgt();
 			const games = await this.loadGames(ssgt.uuid);
 			const standings = await this.loadStandings(ssgt.uuid);
+			await this.loadEvents(games, standings);
 
 			this.state = {
 				ok: true,
@@ -207,6 +208,25 @@ module.exports = NodeHelper.create({
 		}
 
 		return core.applyLive(games, liveUuids, overviews, Date.now());
+	},
+
+	/**
+	 * Latest goals and penalties for the favourite's game, while it is live.
+	 *
+	 * Purely decorative: a failure keeps the events we already had for that
+	 * game and never costs the score or the table.
+	 */
+	async loadEvents(games, standings) {
+		const favourite = core.resolveFavourite(standings, this.config.eventsFor).teamId;
+		const game = core.findFavouriteGame(games, favourite);
+		if (!game || !game.live) return;
+		try {
+			game.events = core.mapEvents(await api.fetchPlayByPlay(game.uuid));
+		} catch (err) {
+			Log.warn(`[MMM-SHL-Tabell] play-by-play svarade inte (${(err && err.message) || err})`);
+			const before = ((this.state && this.state.games) || []).find((g) => g.uuid === game.uuid);
+			game.events = (before && before.events) || [];
+		}
 	},
 
 	stop() {
