@@ -22,6 +22,8 @@ Built for a portrait 1080×1920 mirror. Everything on screen is Swedish; the cod
                                       Senast uppdaterad 18:46
 ```
 
+<img src="docs/standings.png" alt="The SHL standings table on the mirror, with crests, goal difference and points" width="430">
+
 ## What it does
 
 - **The standings table** — all 14 teams with their crests, goal difference and points (or every column the SHL table conventionally shows, with `showAllStats`), and rules marking the playoff, play-in and play-out lines.
@@ -34,7 +36,7 @@ Built for a portrait 1080×1920 mirror. Everything on screen is Swedish; the cod
 
 ```bash
 cd ~/MagicMirror/modules
-git clone git@github.com:htilly/MMM-SHL-Tabell.git
+git clone https://github.com/htilly/MMM-SHL-Tabell.git
 ```
 
 No `npm install` — the module has **no dependencies**. It uses native `fetch`, so it needs **Node 18 or newer** (MagicMirror 2.30+ already requires that).
@@ -128,7 +130,7 @@ If `favoriteTeam` is `""`, there is simply no favourite: no highlight, and with 
 
 | Value | Behaviour |
 |---|---|
-| `"favorite"` *(default)* | Show the panel only when the favourite team is playing. Nothing otherwise. The quiet choice for a wall display. |
+| `"favorite"` *(default)* | Show only the favourite team's game: the fixture before puck drop, the live score and clock during play, and the final score afterwards. On a day with no SHL games, shows the favourite's fixture if they play on the next game day. Nothing otherwise. The quiet choice for a wall display. |
 | `"all"` | Show every game in progress; before puck drop, tonight's fixtures. |
 | `"off"` | Standings only. |
 
@@ -182,7 +184,7 @@ The game poll adapts:
 npm test
 ```
 
-43 tests, no network and no DOM.
+45 tests, no network and no DOM.
 
 - `test/core.test.js` — the pure logic in `shl-core.js`: team matching, live-state detection, panel selection in each mode, zone mapping, poll scheduling, formatting.
 - `test/helper.test.js` — the degraded paths that decide whether the wall shows a stale table or an empty one: serving from cache before any network call, surviving a failed fetch, the cold start with neither cache nor network, the season-lookup fallback, the staleness footnote, and the re-subscribe watchdog. MagicMirror's `node_helper` and `logger` modules are stubbed; everything under test is the real code.
