@@ -30,7 +30,8 @@ Built for a portrait 1080×1920 mirror. Everything on screen is Swedish; the cod
 
 - **The standings table** — all 14 teams with their crests, goal difference and points (or every column the SHL table conventionally shows, with `showAllStats`), and rules marking the playoff, play-in and play-out lines.
 - **Colour that means something** — green/red on goal difference, and nothing decorative. Rank numbers can optionally be coloured by qualification zone. Crests carry the club colour so the table doesn't have to.
-- **Live scores** — when a game is in progress, the score, period and clock appear above the table. The panel is absent the rest of the time, so the table normally sits alone.
+- **Live scores** — when a game is in progress, the score, period and clock appear above the table.
+- **A reminder the day before** — from 24 hours before puck drop the game appears above the table, with a countdown ticking where the score will be. Once the game is over the panel goes away, so the rest of the time the table sits alone.
 - **A favourite team** — highlighted in the table, and their game surfaced prominently when they play.
 - **Graceful failure** — the last good table is cached to disk and rendered with a "senast uppdaterad" stamp if the feed goes away. A wall display should never go blank or show a stack trace.
 
@@ -84,6 +85,7 @@ With the options worth knowing about:
 | `header` | `"SHL"` | Module header. Set to `""` to hide it. |
 | `favoriteTeam` | `"FBK"` | Which team to highlight. See [team codes](#team-codes) below. Case-insensitive; accepts the code or the short name. `""` for no favourite. |
 | `liveGames` | `"favorite"` | Which games appear above the table. See [live games](#live-games). |
+| `reminderLead` | `86400000` | How long before puck drop (ms) a game appears with its countdown. 24 hours by default. |
 | `showEvents` | `true` | List the three latest goals and penalties in the favourite's live panel. Only with `liveGames: "favorite"`, and only while the game is on. |
 | `maxRows` | `14` | How many teams to show. `14` is the whole league; lower it for a top slice. |
 | `dividers` | `[6, 10, 13]` | Draw a rule *after* these ranks. The SHL default marks direct playoff places (1–6), play-in (7–10) and the play-out spot (14). |
@@ -133,8 +135,8 @@ If `favoriteTeam` is `""`, there is simply no favourite: no highlight, and with 
 
 | Value | Behaviour |
 |---|---|
-| `"favorite"` *(default)* | Show only the favourite team's game: the fixture before puck drop, the live score and clock during play, and the final score afterwards. On a day with no SHL games, shows the favourite's fixture if they play on the next game day. Nothing otherwise. The quiet choice for a wall display. |
-| `"all"` | Show every game in progress; before puck drop, tonight's fixtures. |
+| `"favorite"` *(default)* | Show only the favourite team's game: from 24 hours before puck drop the fixture with a countdown, then the live score and clock during play. Gone as soon as the game is over. Nothing otherwise. The quiet choice for a wall display. |
+| `"all"` | Show every game in progress; otherwise the fixtures starting within the next 24 hours. |
 | `"off"` | Standings only. |
 
 With `liveGames: "favorite"` and no `favoriteTeam` set, nothing is shown — it does not silently fall back to `"all"`.
@@ -144,6 +146,16 @@ With `liveGames: "favorite"` and no `favoriteTeam` set, nothing is shown — it 
 | <img src="docs/live-favorite.png" alt="Live panel for the favourite team's game above the table" width="400"> | <img src="docs/live-all.png" alt="One line per live game above the table" width="400"> |
 
 When there are no games at all, no panel is rendered: no empty box, no placeholder, just the table.
+
+### Countdown
+
+<img src="docs/countdown.png" alt="Tomorrow's game above the table with a countdown where the score will be" width="400">
+
+Before puck drop the score slot holds a countdown (`22:28:21`, or `1 d 02:00:00` with a longer `reminderLead`), and the line above says when: *Ikväll 19:00*, *Idag 15:15* or *Imorgon 19:00*. It ticks every second in the browser by rewriting its own text — no redraw, no extra fetches. At zero it reads *Nedsläpp* until the league lists the game as live.
+
+The next game day is fetched alongside today's games (at most every 30 minutes), so the reminder shows up even when other teams are playing tonight.
+
+A game whose start has passed but that never shows up as live is dropped after 30 minutes, so a feed that lags behind the final whistle cannot leave a stale fixture up all evening.
 
 ## Data source
 
@@ -184,6 +196,8 @@ The game poll adapts:
 | Games today, but hours away | 10 min |
 | No games today | 30 min |
 
+Tomorrow's fixtures, fetched for the countdown, do not count as a game day: an idle day stays at 30 minutes.
+
 `upcoming-live-games` — the call that decides whether anything is live — returns about 90 bytes, which is what makes the 60-second tick reasonable. The heavier `game-overview` call is made only for games the league itself lists as live.
 
 ## Tests
@@ -192,7 +206,7 @@ The game poll adapts:
 npm test
 ```
 
-50 tests, no network and no DOM.
+59 tests, no network and no DOM.
 
 - `test/core.test.js` — the pure logic in `shl-core.js`: team matching, live-state detection, panel selection in each mode, zone mapping, poll scheduling, formatting.
 - `test/helper.test.js` — the degraded paths that decide whether the wall shows a stale table or an empty one: serving from cache before any network call, surviving a failed fetch, the cold start with neither cache nor network, the season-lookup fallback, the staleness footnote, and the re-subscribe watchdog. MagicMirror's `node_helper` and `logger` modules are stubbed; everything under test is the real code.

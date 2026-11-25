@@ -13,6 +13,10 @@
 	else root.ShlCore = api;
 })(typeof self !== "undefined" ? self : this, function () {
 	const MINUTE = 60 * 1000;
+	const HOUR = 60 * MINUTE;
+	const DAY = 24 * HOUR;
+	const DEFAULT_REMINDER_LEAD = DAY;
+	const STARTED_GRACE = 30 * MINUTE;
 
 	/* ----------------------------------------------------------- matching */
 
@@ -208,33 +212,56 @@
 	}
 
 	/**
+	 * Whether a game belongs on the wall right now.
+	 *
+	 * The panel is for hockey that is happening or about to: a game being
+	 * played, or one starting within `lead` (a day by default) as a reminder
+	 * with a countdown. A finished game is gone — the table already says how
+	 * it went.
+	 *
+	 * A game whose start has passed but that the league does not list as live
+	 * yet keeps its place for a short grace period (puck drop is rarely on the
+	 * second). Past that it is treated as over: a feed whose `state` lags
+	 * behind the final whistle must not leave a stale fixture up all evening.
+	 */
+	function isRelevant(game, now, lead) {
+		if (!game) return false;
+		if (game.live) return true;
+		if (isFinished(game.state) || game.start === null || game.start === undefined) return false;
+		const at = now || Date.now();
+		const window = lead === undefined || lead === null ? DEFAULT_REMINDER_LEAD : lead;
+		if (game.start > at) return game.start - at <= window;
+		return at - game.start <= STARTED_GRACE;
+	}
+
+	/**
 	 * Which games, if any, belong in the panel above the table.
 	 *
 	 * "favorite" is the quiet default for a wall display: the panel appears
-	 * when the favourite is playing and is absent the rest of the time, so the
-	 * table normally sits alone. With no favourite configured it shows nothing
-	 * rather than silently behaving like "all".
+	 * when the favourite is playing, or plays within `lead`, and is absent the
+	 * rest of the time, so the table normally sits alone. With no favourite
+	 * configured it shows nothing rather than silently behaving like "all".
 	 *
 	 * Always returns an array; an empty one means render no panel at all —
 	 * not an empty box, not a placeholder.
 	 */
-	function selectLiveGames(games, favouriteTeamId, mode) {
+	function selectLiveGames(games, favouriteTeamId, mode, now, lead) {
 		const list = Array.isArray(games) ? games : [];
 		if (mode === "off") return [];
 
 		if (mode === "all") {
 			const live = list.filter((g) => g.live);
 			if (live.length > 0) return live;
-			// Nothing in progress: show tonight's fixtures, but only before they start.
-			return list.filter((g) => !isFinished(g.state));
+			// Nothing in progress: the fixtures coming up within the reminder window.
+			return list.filter((g) => isRelevant(g, now, lead));
 		}
 
 		// "favorite" (default)
 		if (!favouriteTeamId) return [];
-		const game = findFavouriteGame(list, favouriteTeamId);
-		if (!game) return [];
-		if (isFinished(game.state) && !game.live) return [game];
-		return [game];
+		const wanted = norm(favouriteTeamId);
+		const theirs = list.filter((g) => teamKeys(g.home).includes(wanted) || teamKeys(g.away).includes(wanted));
+		const game = theirs.find((g) => g.live) || theirs.find((g) => isRelevant(g, now, lead));
+		return game ? [game] : [];
 	}
 
 	/* ------------------------------------------------------------- events */
@@ -315,6 +342,10 @@
 
 		if (games.some((g) => g.live)) return liveInterval;
 
+		// Games from the next game day are there for the reminder, not because
+		// anything is happening today; they only matter as an upcoming puck drop.
+		const today = games.filter((g) => !g.upcomingDay);
+
 		const upcoming = games
 			.filter((g) => g.start !== null && g.start > at && !isFinished(g.state))
 			.map((g) => g.start - at)
@@ -322,8 +353,8 @@
 
 		if (upcoming !== undefined && upcoming <= preGameLead) return liveInterval;
 		// A game that started but is not in the live list yet: check back shortly.
-		if (games.some((g) => g.start !== null && g.start <= at && !isFinished(g.state))) return liveInterval;
-		if (games.length > 0) return gamedayInterval;
+		if (today.some((g) => g.start !== null && g.start <= at && !isFinished(g.state))) return liveInterval;
+		if (today.length > 0) return gamedayInterval;
 		return idleInterval;
 	}
 
@@ -357,6 +388,52 @@
 		}
 	}
 
+	/**
+	 * Time left until puck drop: "05:12:33", or "1 d 05:12:33" beyond a day.
+	 *
+	 * Whole seconds, rounded up, so it never shows 00:00:00 while there is
+	 * still time on the clock. Once it reaches zero the game is about to start
+	 * and the caller shows that instead.
+	 */
+	function formatCountdown(ms) {
+		if (!Number.isFinite(ms) || ms <= 0) return "";
+		const total = Math.ceil(ms / 1000);
+		const days = Math.floor(total / 86400);
+		const h = Math.floor((total % 86400) / 3600);
+		const m = Math.floor((total % 3600) / 60);
+		const sec = total % 60;
+		const clock = [h, m, sec].map((n) => String(n).padStart(2, "0")).join(":");
+		return days > 0 ? `${days} d ${clock}` : clock;
+	}
+
+	/** Calendar date in the given zone, as "YYYY-MM-DD", for same-day comparisons. */
+	function localDate(ms, timeZone) {
+		try {
+			return new Intl.DateTimeFormat("sv-SE", {
+				year: "numeric",
+				month: "2-digit",
+				day: "2-digit",
+				timeZone: timeZone || "Europe/Stockholm"
+			}).format(new Date(ms));
+		} catch {
+			return "";
+		}
+	}
+
+	/** "Ikväll 19:00", "Idag 15:15", "Imorgon 19:00", or "28 nov. 19:00". */
+	function kickoffLabel(start, now, timeZone) {
+		const time = formatTime(start, timeZone);
+		if (!time) return "Kommande";
+		const at = now || Date.now();
+		const day = localDate(start, timeZone);
+		if (day && day === localDate(at, timeZone)) {
+			const hour = Number(time.slice(0, 2));
+			return `${hour >= 17 ? "Ikväll" : "Idag"} ${time}`;
+		}
+		if (day && day === localDate(at + DAY, timeZone)) return `Imorgon ${time}`;
+		return formatDateTime(start, timeZone);
+	}
+
 	function formatDiff(diff) {
 		return diff > 0 ? `+${diff}` : String(diff);
 	}
@@ -384,6 +461,9 @@
 		mapEvents,
 		findFavouriteGame,
 		selectLiveGames,
+		isRelevant,
+		formatCountdown,
+		kickoffLabel,
 		zoneFor,
 		nextPollDelay,
 		formatTime,

@@ -449,3 +449,45 @@ test("a failed events fetch keeps the previous events and does not throw", async
 	await helper.loadEvents([fav], CACHED_STATE.standings);
 	assert.deepStrictEqual(fav.events, [{ type: "goal" }]);
 });
+
+/* ------------------------------------------------------- next game day */
+
+const rawGame = (uuid, start, home, away) => ({
+	uuid,
+	startDateTime: start,
+	state: "pre-game",
+	homeTeamInfo: { code: home, names: { code: home } },
+	awayTeamInfo: { code: away, names: { code: away } }
+});
+
+test("tomorrow's games are added after today's, flagged, without duplicates", async () => {
+	const { helper, api } = loadHelper();
+	helper.start();
+	helper.config = {};
+	let nextDayCalls = 0;
+	api.fetchTodayGames = async () => [rawGame("a", "2026-11-25T18:00:00Z", "LHF", "MIF")];
+	api.fetchNextGameDay = async () => {
+		nextDayCalls++;
+		return { games: [rawGame("a", "2026-11-25T18:00:00Z", "LHF", "MIF"), rawGame("b", "2026-11-26T18:00:00Z", "TIK", "FBK")] };
+	};
+	api.fetchLiveUuids = async () => [];
+
+	const games = await helper.loadGames("s");
+	assert.deepStrictEqual(games.map((g) => [g.uuid, Boolean(g.upcomingDay)]), [["a", false], ["b", true]]);
+
+	await helper.loadGames("s");
+	assert.strictEqual(nextDayCalls, 1, "next-game-day is not refetched on every poll");
+});
+
+test("a failing next-game-day costs the reminder, not today's games", async () => {
+	const { helper, api } = loadHelper();
+	helper.start();
+	helper.config = {};
+	api.fetchTodayGames = async () => [rawGame("a", "2026-11-25T18:00:00Z", "LHF", "MIF")];
+	api.fetchNextGameDay = async () => {
+		throw new Error("boom");
+	};
+	api.fetchLiveUuids = async () => [];
+	const games = await helper.loadGames("s");
+	assert.deepStrictEqual(games.map((g) => g.uuid), ["a"]);
+});

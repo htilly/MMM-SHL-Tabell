@@ -23,6 +23,7 @@ const HOUR = 60 * MINUTE;
 const SSGT_TTL = 12 * HOUR;
 const COLD_START_RETRY = 2 * MINUTE;
 const STANDINGS_MIN_AGE = 5 * MINUTE;
+const NEXT_DAY_MAX_AGE = 30 * MINUTE;
 
 module.exports = NodeHelper.create({
 	start() {
@@ -32,6 +33,8 @@ module.exports = NodeHelper.create({
 		this.ssgt = null;
 		this.ssgtAt = 0;
 		this.standingsAt = 0;
+		this.nextDay = null;
+		this.nextDayAt = 0;
 		this.state = null;
 	},
 
@@ -80,8 +83,9 @@ module.exports = NodeHelper.create({
 			await api.writeCache(this.cacheFile("state"), this.state);
 
 			const liveCount = games.filter((g) => g.live).length;
+			const todayCount = games.filter((g) => !g.upcomingDay).length;
 			Log.info(
-				`[MMM-SHL-Tabell] ${standings.length} lag i tabellen, ${games.length} matcher idag` +
+				`[MMM-SHL-Tabell] ${standings.length} lag i tabellen, ${todayCount} matcher idag` +
 					(liveCount ? `, ${liveCount} live` : "")
 			);
 			delay = core.nextPollDelay(games, this.config, Date.now());
@@ -168,24 +172,18 @@ module.exports = NodeHelper.create({
 	},
 
 	/**
-	 * Today's games, enriched with live score and clock.
-	 *
-	 * If there is no hockey today we fall back to the next game day so the
-	 * module can say when the favourite plays next instead of showing nothing.
+	 * Today's games, enriched with live score and clock, followed by the next
+	 * game day's — flagged `upcomingDay` — so the module can put up a reminder
+	 * and countdown the day before, even while other teams play tonight.
 	 */
 	async loadGames(ssgtUuid) {
-		let games = core.mapGames(await api.fetchTodayGames(ssgtUuid));
-		let upcoming = false;
-
-		if (games.length === 0) {
-			try {
-				games = core.mapGames(await api.fetchNextGameDay(ssgtUuid));
-				upcoming = true;
-			} catch {
-				games = [];
-			}
+		const games = core.mapGames(await api.fetchTodayGames(ssgtUuid));
+		const known = new Set(games.map((g) => g.uuid));
+		for (const g of await this.loadNextGameDay(ssgtUuid)) {
+			if (known.has(g.uuid)) continue;
+			g.upcomingDay = true;
+			games.push(g);
 		}
-		for (const g of games) g.upcomingDay = upcoming;
 		if (games.length === 0) return games;
 
 		let liveUuids = [];
@@ -226,6 +224,31 @@ module.exports = NodeHelper.create({
 			Log.warn(`[MMM-SHL-Tabell] play-by-play svarade inte (${(err && err.message) || err})`);
 			const before = ((this.state && this.state.games) || []).find((g) => g.uuid === game.uuid);
 			game.events = (before && before.events) || [];
+		}
+	},
+
+	/**
+	 * The next game day's fixtures, refetched at most every half hour — they
+	 * are only there for the reminder, and do not change at 60-second pace.
+	 *
+	 * Mapped fresh from the raw payload every time, so nothing a previous
+	 * poll did to the game objects leaks into this one. A failure costs the
+	 * reminder, never today's games.
+	 */
+	async loadNextGameDay(ssgtUuid) {
+		if (!this.nextDay || Date.now() - this.nextDayAt >= NEXT_DAY_MAX_AGE) {
+			try {
+				this.nextDay = await api.fetchNextGameDay(ssgtUuid);
+				this.nextDayAt = Date.now();
+			} catch (err) {
+				Log.warn(`[MMM-SHL-Tabell] next-game-day svarade inte (${(err && err.message) || err})`);
+				this.nextDayAt = 0;
+			}
+		}
+		try {
+			return core.mapGames(this.nextDay);
+		} catch {
+			return [];
 		}
 	},
 
