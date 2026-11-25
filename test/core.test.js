@@ -206,7 +206,7 @@ test('liveGames "off" never shows a panel', () => {
 
 test('liveGames "favorite" shows only the favourite\'s game', () => {
 	const games = core.applyLive(core.mapGames(todayGames), ["mqhq8jocap"], {}, START + MIN(30));
-	const picked = core.selectLiveGames(games, "FHC", "favorite");
+	const picked = core.selectLiveGames(games, "FHC", "favorite", START + MIN(30));
 	assert.equal(picked.length, 1);
 	assert.equal(picked[0].uuid, "yaymmo31d1", "Frölunda's game, not the one in progress");
 });
@@ -230,7 +230,7 @@ test('liveGames "all" prefers games in progress, else tonight\'s fixtures', () =
 	);
 
 	const upcoming = core.applyLive(core.mapGames(todayGames), [], {}, START - MIN(60));
-	assert.equal(core.selectLiveGames(upcoming, null, "all").length, 2);
+	assert.equal(core.selectLiveGames(upcoming, null, "all", START - MIN(60)).length, 2);
 });
 
 test("no games at all means no panel, in every mode", () => {
@@ -238,6 +238,50 @@ test("no games at all means no panel, in every mode", () => {
 		assert.deepEqual(core.selectLiveGames([], "FBK", mode), [], mode);
 		assert.deepEqual(core.selectLiveGames(null, "FBK", mode), [], mode);
 	}
+});
+
+const HOURS = (n) => n * 60 * MIN(1);
+
+test('the favourite\'s next game appears a day before puck drop, not earlier', () => {
+	const games = core.mapGames(todayGames);
+	assert.equal(core.selectLiveGames(games, "FHC", "favorite", START - HOURS(25)).length, 0, "25 h out");
+	assert.equal(core.selectLiveGames(games, "FHC", "favorite", START - HOURS(23)).length, 1, "23 h out");
+	assert.equal(core.selectLiveGames(games, "FHC", "favorite", START - HOURS(30), HOURS(36)).length, 1, "custom lead");
+});
+
+test("a finished game leaves the panel straight away", () => {
+	const overviews = { yaymmo31d1: { state: "post_game", homeGoals: 1, awayGoals: 4, time: {} } };
+	const done = core.applyLive(core.mapGames(todayGames), [], overviews, START + MIN(150));
+	assert.deepEqual(core.selectLiveGames(done, "FHC", "favorite", START + MIN(150)), []);
+});
+
+test("a game past its start but never listed live drops out after a grace period", () => {
+	const games = core.applyLive(core.mapGames(todayGames), [], {}, START + MIN(10));
+	assert.equal(core.selectLiveGames(games, "FHC", "favorite", START + MIN(10)).length, 1, "puck drop running late");
+	assert.equal(core.selectLiveGames(games, "FHC", "favorite", START + MIN(90)).length, 0, "state lagging after the game");
+});
+
+test("a live game wins over the same team's game tomorrow", () => {
+	const today = core.applyLive(core.mapGames(todayGames), ["yaymmo31d1"], {}, START + MIN(30));
+	const tomorrow = { ...core.mapGame(todayGames[1]), uuid: "next", start: START + HOURS(23), upcomingDay: true };
+	const picked = core.selectLiveGames([...today, tomorrow], "FHC", "favorite", START + MIN(30));
+	assert.deepEqual(picked.map((g) => g.uuid), ["yaymmo31d1"]);
+});
+
+test("formatCountdown counts down to the second, with days beyond 24 h", () => {
+	assert.equal(core.formatCountdown(HOURS(5) + MIN(12) + 33000), "05:12:33");
+	assert.equal(core.formatCountdown(500), "00:00:01", "never 00:00:00 while time remains");
+	assert.equal(core.formatCountdown(HOURS(26)), "1 d 02:00:00");
+	assert.equal(core.formatCountdown(0), "");
+	assert.equal(core.formatCountdown(-5000), "");
+});
+
+test("kickoffLabel says tonight, today or tomorrow in Stockholm time", () => {
+	// START is 19:00 in Stockholm on 24 Nov.
+	assert.equal(core.kickoffLabel(START, START - HOURS(3), "Europe/Stockholm"), "Ikväll 19:00");
+	assert.equal(core.kickoffLabel(START - HOURS(4), START - HOURS(6), "Europe/Stockholm"), "Idag 15:00");
+	assert.equal(core.kickoffLabel(START, START - HOURS(20), "Europe/Stockholm"), "Imorgon 19:00");
+	assert.match(core.kickoffLabel(START, START - HOURS(72), "Europe/Stockholm"), /24 nov\.? 19:00/);
 });
 
 /* ------------------------------------------------------------ polling */
@@ -257,6 +301,11 @@ test("polling speeds up near puck drop and during play", () => {
 
 	const live = core.applyLive(core.mapGames(todayGames), ["mqhq8jocap"], {}, START + MIN(30));
 	assert.equal(core.nextPollDelay(live, opts, START + MIN(30)), MIN(1));
+});
+
+test("tomorrow's games alone do not make today a game day", () => {
+	const tomorrow = core.mapGames(todayGames).map((g) => ({ ...g, upcomingDay: true }));
+	assert.equal(core.nextPollDelay(tomorrow, opts, START - HOURS(22)), MIN(30));
 });
 
 test("polling slows back down once every game has finished", () => {

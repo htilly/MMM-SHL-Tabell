@@ -386,3 +386,13 @@
 .shl-foot--stale {
 	color: var(--shl-fav);
 }
+
+/* --- countdown to puck drop -------------------------------------------- */
+
+/* Sits where the score will be. Smaller than a score, since "05:12:33" is
+   twice as wide as "2 – 1" and the crests either side must keep their room. */
+.shl-countdown {
+	font-size: 1.9em;
+	letter-spacing: 0.01em;
+	color: rgba(255, 255, 255, 0.85);
+}

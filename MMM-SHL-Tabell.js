@@ -19,6 +19,10 @@ Module.register("MMM-SHL-Tabell", {
 		// "all"      — every game in progress
 		// "off"      — standings only
 		liveGames: "favorite",
+		// How long before puck drop the game appears, with a countdown where
+		// the score will be. Outside that window and once the game is over
+		// there is no panel, just the table.
+		reminderLead: 24 * 60 * 60 * 1000,
 		// Latest goals and penalties in the favourite's live panel.
 		showEvents: true,
 		maxRows: 14,
@@ -66,6 +70,10 @@ Module.register("MMM-SHL-Tabell", {
 		this.subscribedAt = 0;
 
 		this.subscribe();
+
+		// The countdown ticks every second by rewriting its own text; a full
+		// redraw for that would be wasteful and would flicker.
+		setInterval(() => this.tickCountdowns(), 1000);
 
 		// Re-render each minute so the "senast uppdaterad" stamp and the
 		// staleness warning stay honest between fetches, and take the chance
@@ -118,6 +126,21 @@ Module.register("MMM-SHL-Tabell", {
 		if (this.suspended) return;
 		this.updateDom(this.hasRendered ? 1000 : 0);
 		this.hasRendered = true;
+	},
+
+	/** Advance every countdown on screen to the current second. */
+	tickCountdowns() {
+		if (this.suspended || typeof document === "undefined") return;
+		const root = document.getElementById(this.identifier);
+		if (!root) return;
+		for (const node of root.querySelectorAll(".shl-countdown[data-start]")) {
+			const text = this.countdownText(Number(node.dataset.start));
+			if (node.textContent !== text) node.textContent = text;
+		}
+	},
+
+	countdownText(start) {
+		return ShlCore.formatCountdown(start - Date.now()) || "Nedsläpp";
 	},
 
 	/* MMM-pages hides this module for half of every rotation; there is no
@@ -204,7 +227,13 @@ Module.register("MMM-SHL-Tabell", {
 	 * there is no hockey, and the table should sit alone with no gap above it.
 	 */
 	renderLivePanel(favourite) {
-		const games = ShlCore.selectLiveGames(this.payload.games || [], favourite, this.config.liveGames);
+		const games = ShlCore.selectLiveGames(
+			this.payload.games || [],
+			favourite,
+			this.config.liveGames,
+			Date.now(),
+			this.config.reminderLead
+		);
 		if (games.length === 0) return null;
 
 		const box = this.el("div", "shl-live");
@@ -220,8 +249,8 @@ Module.register("MMM-SHL-Tabell", {
 	 * The favourite's game, sized to be read from across the room.
 	 *
 	 * Live: a pulsing LIVE tag, the score as the hero, period and clock under
-	 * it. Not started: the fixture and the time. Finished: the final score,
-	 * quietly.
+	 * it. Not started: the day and time of puck drop, and a countdown where
+	 * the score will be.
 	 */
 	renderHeroGame(game, favourite) {
 		const live = game.live;
@@ -241,9 +270,15 @@ Module.register("MMM-SHL-Tabell", {
 
 		const score = this.el("div", "shl-hero-score");
 		score.appendChild(this.heroSide(game.home, favourite, "home"));
-		score.appendChild(
-			this.el("span", "shl-hero-nums", live || finished ? `${game.home.score ?? 0} – ${game.away.score ?? 0}` : "–")
-		);
+		if (live || finished) {
+			score.appendChild(this.el("span", "shl-hero-nums", `${game.home.score ?? 0} – ${game.away.score ?? 0}`));
+		} else if (game.start) {
+			const countdown = this.el("span", "shl-hero-nums shl-countdown", this.countdownText(game.start));
+			countdown.dataset.start = String(game.start);
+			score.appendChild(countdown);
+		} else {
+			score.appendChild(this.el("span", "shl-hero-nums", "–"));
+		}
 		score.appendChild(this.heroSide(game.away, favourite, "away"));
 		card.appendChild(score);
 
@@ -280,7 +315,11 @@ Module.register("MMM-SHL-Tabell", {
 			status.appendChild(this.el("span", null, ShlCore.liveLabel(game)));
 		} else {
 			status.className += " dimmed";
-			status.textContent = finished ? this.finalLabel(game) : ShlCore.formatTime(game.start, this.config.timeZone);
+			status.textContent = finished
+				? this.finalLabel(game)
+				: game.upcomingDay
+					? ShlCore.kickoffLabel(game.start, Date.now(), this.config.timeZone)
+					: ShlCore.formatTime(game.start, this.config.timeZone);
 		}
 		row.appendChild(status);
 
@@ -311,10 +350,7 @@ Module.register("MMM-SHL-Tabell", {
 	},
 
 	kickoffLabel(game) {
-		const time = ShlCore.formatTime(game.start, this.config.timeZone);
-		if (!time) return "Kommande";
-		if (game.upcomingDay) return ShlCore.formatDateTime(game.start, this.config.timeZone);
-		return `Ikväll ${time}`;
+		return ShlCore.kickoffLabel(game.start, Date.now(), this.config.timeZone);
 	},
 
 	finalLabel(game) {
