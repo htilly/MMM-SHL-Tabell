@@ -23,6 +23,11 @@ Module.register("MMM-SHL-Tabell", {
 		// the score will be. Outside that window and once the game is over
 		// there is no panel, just the table.
 		reminderLead: 24 * 60 * 60 * 1000,
+		// While a game is being played the game replaces the table on the
+		// wall, and keeps it for finalHold after the final whistle.
+		// false = the game sits above the table as a smaller panel instead.
+		liveTakeover: true,
+		finalHold: 5 * 60 * 1000,
 		// Latest goals and penalties in the favourite's live panel.
 		showEvents: true,
 		maxRows: 14,
@@ -208,16 +213,31 @@ Module.register("MMM-SHL-Tabell", {
 		}
 
 		const favourite = this.favourite();
+		const games = this.panelGames(favourite);
+		// Hockey on (or just over): the game is the whole show, no table.
+		const takeover = this.config.liveTakeover && games.some((g) => g.live || ShlCore.hasEnded(g));
 
-		const panel = this.renderLivePanel(favourite);
+		const panel = this.renderLivePanel(games, favourite, takeover);
 		if (panel) root.appendChild(panel);
 
-		root.appendChild(this.renderTable(favourite));
+		if (!takeover) root.appendChild(this.renderTable(favourite));
 
 		const note = this.footNote();
 		if (note) root.appendChild(this.el("div", `shl-foot xsmall ${note.stale ? "shl-foot--stale" : "dimmed"}`, note.text));
 
 		return root;
+	},
+
+	/** The games that belong on the wall right now; see ShlCore.selectLiveGames. */
+	panelGames(favourite) {
+		return ShlCore.selectLiveGames(
+			this.payload.games || [],
+			favourite,
+			this.config.liveGames,
+			Date.now(),
+			this.config.reminderLead,
+			this.config.finalHold
+		);
 	},
 
 	/**
@@ -226,21 +246,16 @@ Module.register("MMM-SHL-Tabell", {
 	 * Returning null rather than an empty element matters: on most evenings
 	 * there is no hockey, and the table should sit alone with no gap above it.
 	 */
-	renderLivePanel(favourite) {
-		const games = ShlCore.selectLiveGames(
-			this.payload.games || [],
-			favourite,
-			this.config.liveGames,
-			Date.now(),
-			this.config.reminderLead
-		);
+	renderLivePanel(games, favourite, takeover) {
 		if (games.length === 0) return null;
 
-		const box = this.el("div", "shl-live");
+		const box = this.el("div", `shl-live${takeover ? " shl-live--takeover" : ""}`);
 		const isFavouriteMode = this.config.liveGames !== "all";
 
 		for (const game of games) {
-			box.appendChild(isFavouriteMode ? this.renderHeroGame(game, favourite) : this.renderGameRow(game, favourite));
+			box.appendChild(
+				isFavouriteMode ? this.renderHeroGame(game, favourite, takeover) : this.renderGameRow(game, favourite)
+			);
 		}
 		return box;
 	},
@@ -250,11 +265,11 @@ Module.register("MMM-SHL-Tabell", {
 	 *
 	 * Live: a pulsing LIVE tag, the score as the hero, period and clock under
 	 * it. Not started: the day and time of puck drop, and a countdown where
-	 * the score will be.
+	 * the score will be. Just over: the final score, for finalHold.
 	 */
-	renderHeroGame(game, favourite) {
+	renderHeroGame(game, favourite, takeover) {
 		const live = game.live;
-		const finished = ShlCore.isFinished(game.state) && !live;
+		const finished = ShlCore.hasEnded(game);
 		const card = this.el("div", `shl-hero${live ? " shl-hero--live" : ""}${finished ? " shl-hero--done" : ""}`);
 
 		const tag = this.el("div", "shl-hero-tag");
@@ -283,8 +298,9 @@ Module.register("MMM-SHL-Tabell", {
 		card.appendChild(score);
 
 		if (game.venue && !finished) card.appendChild(this.el("div", "shl-hero-venue xsmall dimmed", game.venue));
-		if (live && this.config.showEvents && game.events && game.events.length > 0) {
-			card.appendChild(this.renderEvents(game.events));
+		if ((live || finished) && this.config.showEvents && game.events && game.events.length > 0) {
+			// With the whole wall to itself the game gets every event we have.
+			card.appendChild(this.renderEvents(takeover ? game.events : game.events.slice(0, 3)));
 		}
 		return card;
 	},
@@ -306,7 +322,7 @@ Module.register("MMM-SHL-Tabell", {
 	/** One line per game, for liveGames: "all". */
 	renderGameRow(game, favourite) {
 		const live = game.live;
-		const finished = ShlCore.isFinished(game.state) && !live;
+		const finished = ShlCore.hasEnded(game);
 		const row = this.el("div", `shl-game${live ? " shl-game--live" : ""}`);
 
 		const status = this.el("span", "shl-game-status xsmall");

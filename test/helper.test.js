@@ -491,3 +491,57 @@ test("a failing next-game-day costs the reminder, not today's games", async () =
 	const games = await helper.loadGames("s");
 	assert.deepStrictEqual(games.map((g) => g.uuid), ["a"]);
 });
+
+/* ------------------------------------------------------------ takeover */
+
+function renderWith(games, now, config) {
+	const mod = loadFrontEnd();
+	Object.assign(mod.config, { showLogos: false, favoriteTeam: "FBK" }, config || {});
+	mod.payload = { standings: CACHED_STATE.standings, games };
+	const made = [];
+	mod.el = (tag, cls, text) => {
+		const node = { tag, cls: cls || "", text, children: [], dataset: {}, appendChild(c) { this.children.push(c); } };
+		made.push(node);
+		return node;
+	};
+	const realNow = Date.now;
+	Date.now = () => now;
+	try {
+		mod.getDom();
+	} finally {
+		Date.now = realNow;
+	}
+	return { hasTable: made.some((n) => n.tag === "table"), hasPanel: made.some((n) => /shl-live/.test(n.cls)), made };
+}
+
+const side = (code, score) => ({ teamId: code, code, names: { code }, display: code, score });
+const T0 = Date.parse("2026-11-26T18:00:00Z");
+
+test("a live game replaces the table", () => {
+	const live = { uuid: "g", start: T0, state: "live", live: true, home: side("TIK", 1), away: side("FBK", 2) };
+	const r = renderWith([live], T0 + 30 * 60000);
+	assert.strictEqual(r.hasPanel, true);
+	assert.strictEqual(r.hasTable, false);
+});
+
+test("the table is back five minutes after the final whistle", () => {
+	const ended = { uuid: "g", start: T0, state: "live", live: false, endedAt: T0 + 150 * 60000, home: side("TIK", 1), away: side("FBK", 2) };
+	const during = renderWith([ended], T0 + 153 * 60000);
+	assert.strictEqual(during.hasTable, false, "final score still holding the wall");
+	assert.ok(during.made.some((n) => n.text === "1 – 2"), "final score shown");
+	const after = renderWith([ended], T0 + 156 * 60000);
+	assert.strictEqual(after.hasTable, true);
+	assert.strictEqual(after.hasPanel, false);
+});
+
+test("before puck drop the countdown sits above the table, which stays", () => {
+	const upcoming = { uuid: "g", start: T0, state: "pre-game", live: false, home: side("TIK", null), away: side("FBK", null) };
+	const r = renderWith([upcoming], T0 - 60 * 60000);
+	assert.strictEqual(r.hasPanel, true);
+	assert.strictEqual(r.hasTable, true);
+});
+
+test("liveTakeover: false keeps the table under a live game", () => {
+	const live = { uuid: "g", start: T0, state: "live", live: true, home: side("TIK", 1), away: side("FBK", 2) };
+	assert.strictEqual(renderWith([live], T0 + 30 * 60000, { liveTakeover: false }).hasTable, true);
+});

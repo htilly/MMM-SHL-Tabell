@@ -17,6 +17,7 @@
 	const DAY = 24 * HOUR;
 	const DEFAULT_REMINDER_LEAD = DAY;
 	const STARTED_GRACE = 30 * MINUTE;
+	const DEFAULT_FINAL_HOLD = 5 * MINUTE;
 
 	/* ----------------------------------------------------------- matching */
 
@@ -202,6 +203,42 @@
 		return games;
 	}
 
+	/**
+	 * Over, by either account: the feed says so, or we watched it stop being
+	 * live (`endedAt`, stamped by carryOver). The second matters because
+	 * today-games can keep saying "live" for a while after the final whistle.
+	 */
+	function hasEnded(game) {
+		return Boolean(game) && !game.live && (Boolean(game.endedAt) || isFinished(game.state));
+	}
+
+	/**
+	 * Carry what we knew from the previous poll into this one.
+	 *
+	 * The moment a game leaves the live list, the feeds that gave us its score
+	 * and events stop being asked, and today-games may not have caught up yet.
+	 * So a game that was live last poll and is not now gets `endedAt` stamped,
+	 * and keeps its last known score and events. A game that comes back to
+	 * life (a blip in the live list) loses the stamp again.
+	 */
+	function carryOver(games, previous, now) {
+		const before = new Map(((previous && previous.games) || []).map((g) => [g.uuid, g]));
+		const at = now || Date.now();
+		for (const game of games || []) {
+			const prev = before.get(game.uuid);
+			if (!prev || game.live) continue;
+			if (prev.live) game.endedAt = at;
+			else if (prev.endedAt) game.endedAt = prev.endedAt;
+			for (const side of ["home", "away"]) {
+				if (game[side].score === null && prev[side] && prev[side].score !== null && prev[side].score !== undefined) {
+					game[side].score = prev[side].score;
+				}
+			}
+			if (!game.events && prev.events) game.events = prev.events;
+		}
+		return games;
+	}
+
 	/** The favourite's game today, if there is one. */
 	function findFavouriteGame(games, teamId) {
 		if (!teamId) return null;
@@ -219,16 +256,23 @@
 	 * with a countdown. A finished game is gone — the table already says how
 	 * it went.
 	 *
+	 * A game we saw finish stays up for `finalHold` (five minutes by default)
+	 * with its final score, then gives the wall back to the table.
+	 *
 	 * A game whose start has passed but that the league does not list as live
 	 * yet keeps its place for a short grace period (puck drop is rarely on the
 	 * second). Past that it is treated as over: a feed whose `state` lags
 	 * behind the final whistle must not leave a stale fixture up all evening.
 	 */
-	function isRelevant(game, now, lead) {
+	function isRelevant(game, now, lead, finalHold) {
 		if (!game) return false;
 		if (game.live) return true;
-		if (isFinished(game.state) || game.start === null || game.start === undefined) return false;
 		const at = now || Date.now();
+		if (game.endedAt) {
+			const hold = finalHold === undefined || finalHold === null ? DEFAULT_FINAL_HOLD : finalHold;
+			return at - game.endedAt <= hold;
+		}
+		if (isFinished(game.state) || game.start === null || game.start === undefined) return false;
 		const window = lead === undefined || lead === null ? DEFAULT_REMINDER_LEAD : lead;
 		if (game.start > at) return game.start - at <= window;
 		return at - game.start <= STARTED_GRACE;
@@ -245,7 +289,7 @@
 	 * Always returns an array; an empty one means render no panel at all —
 	 * not an empty box, not a placeholder.
 	 */
-	function selectLiveGames(games, favouriteTeamId, mode, now, lead) {
+	function selectLiveGames(games, favouriteTeamId, mode, now, lead, finalHold) {
 		const list = Array.isArray(games) ? games : [];
 		if (mode === "off") return [];
 
@@ -253,14 +297,14 @@
 			const live = list.filter((g) => g.live);
 			if (live.length > 0) return live;
 			// Nothing in progress: the fixtures coming up within the reminder window.
-			return list.filter((g) => isRelevant(g, now, lead));
+			return list.filter((g) => isRelevant(g, now, lead, finalHold));
 		}
 
 		// "favorite" (default)
 		if (!favouriteTeamId) return [];
 		const wanted = norm(favouriteTeamId);
 		const theirs = list.filter((g) => teamKeys(g.home).includes(wanted) || teamKeys(g.away).includes(wanted));
-		const game = theirs.find((g) => g.live) || theirs.find((g) => isRelevant(g, now, lead));
+		const game = theirs.find((g) => g.live) || theirs.find((g) => isRelevant(g, now, lead, finalHold));
 		return game ? [game] : [];
 	}
 
@@ -462,6 +506,8 @@
 		findFavouriteGame,
 		selectLiveGames,
 		isRelevant,
+		hasEnded,
+		carryOver,
 		formatCountdown,
 		kickoffLabel,
 		zoneFor,

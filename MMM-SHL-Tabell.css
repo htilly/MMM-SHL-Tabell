@@ -396,3 +396,38 @@
 	letter-spacing: 0.01em;
 	color: rgba(255, 255, 255, 0.85);
 }
+
+/* --- game takes over from the table ------------------------------------ */
+
+/* Same card, scaled up to fill the space the table normally uses. */
+.shl-live--takeover {
+	margin-bottom: 0.4em;
+}
+
+.shl-live--takeover .shl-hero {
+	padding: 1.1em 1em 1.2em;
+	font-size: 1.35em;
+}
+
+.shl-live--takeover .shl-hero-tag {
+	margin-bottom: 0.6em;
+}
+
+.shl-live--takeover .shl-hero-nums {
+	font-size: 3.4em;
+}
+
+.shl-live--takeover .shl-logo--hero {
+	transform: scale(1.4);
+	margin: 0.4em 0;
+}
+
+.shl-live--takeover .shl-events {
+	margin-top: 1em;
+	padding-top: 0.7em;
+	font-size: 0.7em;
+}
+
+.shl-live--takeover .shl-event {
+	line-height: 1.7;
+}
