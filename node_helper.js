@@ -24,6 +24,8 @@ const SSGT_TTL = 12 * HOUR;
 const COLD_START_RETRY = 2 * MINUTE;
 const STANDINGS_MIN_AGE = 5 * MINUTE;
 const NEXT_DAY_MAX_AGE = 30 * MINUTE;
+// Enough to fill the screen when the game takes over from the table.
+const EVENT_LIMIT = 10;
 
 module.exports = NodeHelper.create({
 	start() {
@@ -71,6 +73,8 @@ module.exports = NodeHelper.create({
 			const games = await this.loadGames(ssgt.uuid);
 			const standings = await this.loadStandings(ssgt.uuid);
 			await this.loadEvents(games, standings);
+			// Notice games that just ended, and keep their last score and events.
+			core.carryOver(games, this.state, Date.now());
 
 			this.state = {
 				ok: true,
@@ -219,7 +223,7 @@ module.exports = NodeHelper.create({
 		const game = core.findFavouriteGame(games, favourite);
 		if (!game || !game.live) return;
 		try {
-			game.events = core.mapEvents(await api.fetchPlayByPlay(game.uuid));
+			game.events = core.mapEvents(await api.fetchPlayByPlay(game.uuid), EVENT_LIMIT);
 		} catch (err) {
 			Log.warn(`[MMM-SHL-Tabell] play-by-play svarade inte (${(err && err.message) || err})`);
 			const before = ((this.state && this.state.games) || []).find((g) => g.uuid === game.uuid);

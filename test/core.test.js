@@ -392,3 +392,39 @@ test("malformed events never throw", () => {
 		{ type: "penalty", period: 0, time: "", team: "", player: "", detail: "" }
 	]);
 });
+
+/* ------------------------------------------------- end of game, hold */
+
+test("a game that leaves the live list is stamped as ended and keeps its score and events", () => {
+	const prevGames = core.applyLive(core.mapGames(todayGames), ["yaymmo31d1"], {
+		yaymmo31d1: { homeGoals: 2, awayGoals: 3, time: {} }
+	}, START + MIN(140));
+	prevGames[1].events = [{ type: "goal" }];
+	const now = START + MIN(150);
+	// Live list has dropped it; today-games still says pre-game and has no score.
+	const games = core.carryOver(core.applyLive(core.mapGames(todayGames), [], {}, now), { games: prevGames }, now);
+	const g = games[1];
+	assert.equal(g.endedAt, now);
+	assert.equal(core.hasEnded(g), true);
+	assert.deepEqual([g.home.score, g.away.score], [2, 3]);
+	assert.deepEqual(g.events, [{ type: "goal" }]);
+
+	// The stamp survives the next poll, and does not move.
+	const later = core.carryOver(core.mapGames(todayGames), { games }, now + MIN(1));
+	assert.equal(later[1].endedAt, now);
+});
+
+test("a game back in the live list loses its end stamp", () => {
+	const prev = core.mapGames(todayGames);
+	prev[1].endedAt = START + MIN(60);
+	const games = core.carryOver(core.applyLive(core.mapGames(todayGames), ["yaymmo31d1"], {}, START + MIN(61)), { games: prev });
+	assert.equal(games[1].endedAt, undefined);
+	assert.equal(core.hasEnded(games[1]), false);
+});
+
+test("a finished game stays up for five minutes, then the table is back", () => {
+	const g = { ...core.mapGame(todayGames[1]), endedAt: START + MIN(150) };
+	assert.equal(core.selectLiveGames([g], "FHC", "favorite", START + MIN(154)).length, 1, "4 min after");
+	assert.equal(core.selectLiveGames([g], "FHC", "favorite", START + MIN(156)).length, 0, "6 min after");
+	assert.equal(core.selectLiveGames([g], "FHC", "favorite", START + MIN(156), undefined, MIN(10)).length, 1, "custom hold");
+});
